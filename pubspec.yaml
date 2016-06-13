@@ -3,3 +3,6 @@ version: 0.0.1
 author: Riku Tanide
 dependencies:
   html5plus: "^0.9.1+1"
+
+dev_dependencies:
+  test: any
