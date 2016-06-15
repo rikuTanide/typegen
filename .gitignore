@@ -2,3 +2,5 @@
 .packages
 packages/
 pubspec.lock
+.pub/
+lib/generated/
