@@ -2,8 +2,6 @@ library coder.coder;
 
 class ClassSource {
 
-  LibraryDefine library_define = new LibraryDefine();
-
   String class_name;
 
   ClassSource(this.class_name);

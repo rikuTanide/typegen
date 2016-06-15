@@ -15,7 +15,6 @@ class StructClassFileCoder {
 
   ClassSource setClassSource(interpreter.StructDefine define) {
     return new ClassSource(define.class_name)
-      ..library_define = getLibraryDefine()
       ..class_fields.addAll(getClassFields(define));
   }
 
@@ -23,12 +22,17 @@ class StructClassFileCoder {
     return new LibraryDefine()
         ..is_library = false
         ..is_part = true
-        ..part_of_name = "generated";
+        ..part_of_name = "generated.structs";
   }
 
   void writeClassSource(ClassSource class_source){
+
+    var source_file = new SourceFile()
+      ..library_define  = getLibraryDefine()
+      ..class_source_list = [class_source];
+
     new Directory("lib/generated/structs").createSync(recursive: true);
-    new File("lib/generated/structs/${class_source.class_name}.dart").writeAsStringSync(class_source.toString());
+    new File("lib/generated/structs/${class_source.class_name}.dart").writeAsStringSync(source_file.toString());
   }
 
   Iterable<ClassField> getClassFields(interpreter.StructDefine define) {
@@ -73,10 +77,37 @@ class StructClassFileCoder {
 
 }
 
-class StructsIncludeFileCoder {
+/**
+ * import pointを生成。
+ * このファイルをimportすれば全structがimportできる。
+ */
+class StructsImportFileCoder {
   void coding(Iterable<interpreter.StructDefine> class_defines) {
 
-    new ClassSource("Structs")
+    var source_file = new SourceFile()
+      ..library_define = getLibDefine(class_defines);
 
+    writeSorceCode(source_file);
+
+
+  }
+
+  LibraryDefine getLibDefine(Iterable<interpreter.StructDefine> class_defines) {
+    return new LibraryDefine()
+      ..is_library = true
+      ..is_part = false
+      ..library_name = "generated.structs"
+      ..part_files = getPartFiles(class_defines);
+  }
+
+  List<String> getPartFiles(Iterable<interpreter.StructDefine> class_defines) {
+    return class_defines
+        .map((struct_define) => "structs/" +  struct_define.class_name + ".dart")
+        .toList();
+  }
+
+  void writeSorceCode(SourceFile source_file) {
+    new Directory("lib/generated").createSync(recursive: true);
+    new File("lib/generated/structs.dart").writeAsStringSync(source_file.toString());
   }
 }
