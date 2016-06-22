@@ -148,9 +148,9 @@ class EncodersClassFileCoder {
 
 class EncodersImportFileCoder {
 
-  void coding(Iterable<interpreter.StructDefine> class_defines){
+  void coding(Iterable<interpreter.StructDefine> class_defines,String lib_name){
     var source_file = new SourceFile()
-        ..library_define = getLibDefine(class_defines);
+        ..library_define = getLibDefine(class_defines,lib_name);
 
     writeSorceFile(source_file);
   }
@@ -160,12 +160,12 @@ class EncodersImportFileCoder {
     new File("lib/generated/encoders.dart").writeAsStringSync(source_file.toString());
   }
 
-  LibraryDefine getLibDefine(Iterable<interpreter.StructDefine> class_defines) {
+  LibraryDefine getLibDefine(Iterable<interpreter.StructDefine> class_defines,String lib_name) {
     return new LibraryDefine()
       ..is_library = true
       ..is_part = false
       ..library_name = "generated.encoders"
-      ..imports_alias = {"package:typegen/generated/structs.dart" : "structs"}
+      ..imports_alias = {"package:$lib_name/generated/structs.dart" : "structs"}
       ..part_files = getPartFiles(class_defines);
   }
 
