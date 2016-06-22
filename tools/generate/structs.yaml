@@ -1,0 +1,14 @@
+Struct1:
+  field1: String
+  field2: String[]
+  field3: int
+  field4: int[]
+  field5: num
+  field6: num[]
+  field7: DateTime
+  field8: DateTime[]
+  field9: Struct2
+  field10: Struct2[]
+
+Struct2:
+  field1: int

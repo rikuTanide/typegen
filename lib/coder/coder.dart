@@ -4,11 +4,11 @@ class ClassSource {
 
   String class_name;
 
-  ClassSource(this.class_name);
+  ClassSource(this.class_name) : constructor = new DefaultConstructor() ;
 
   List<ClassField> class_fields = [];
 
-  Constructor constructor = new Constructor();
+  Constructor constructor;
 
   List<Getter> getters = [];
 
@@ -38,9 +38,47 @@ class ClassSource {
 
 }
 
-class ClassMethod {
-  List<String> lines(){
+class DefaultConstructor extends Constructor {
+
+  DefaultConstructor() : super("");
+
+  @override
+  List<String> lines() {
     return [];
+  }
+}
+
+class Argument{
+  String type;
+  String name;
+}
+
+class ClassMethod {
+
+  String result_type = "void";
+
+  String name;
+
+  List<Argument> arguments = [];
+
+  List<String> body;
+
+  ClassMethod(this.name);
+
+
+  List<String> lines(){
+    var arg_str = getArgStr();
+    var result = ["$result_type $name ($arg_str){"];
+    result.addAll(body);
+    result.add("}");
+    return result;
+
+  }
+
+  String getArgStr() {
+    return arguments
+        .map((arg) => arg.type + " " + arg.name)
+        .join(",");
   }
 }
 
@@ -48,11 +86,35 @@ class Setter {
 }
 
 class Getter {
+  String type;
+  String name;
+  /** ;は自動挿入されるのでつけない */
+  String method;
+
+  String toString(){
+    return "$type get $name => $method;";
+  }
 }
 
 class Constructor {
+
+  String class_name;
+
+  List<String>assignment;
+
+  Constructor(this.class_name);
+
   List<String> lines(){
-    return [];
+    var assignment_arguments = getAssignmentArguments();
+    return [
+      "  $class_name ($assignment_arguments);"
+    ];
+  }
+
+  String getAssignmentArguments() {
+    return assignment
+        .map((name) => "this.$name")
+        .join(",");
   }
 }
 
@@ -79,10 +141,13 @@ class LibraryDefine {
 
   List<String> imports = [];
 
+  Map<String,String> imports_alias = {};
+
   List<String> lines() {
     if (is_library) {
       return ["library $library_name;"]
         ..addAll(imports.map((i) => "import \"$i\";"))
+        ..addAll(getImportsAlias())
         ..addAll(part_files.map((p) => "part \"$p\";"));
     }
 
@@ -90,6 +155,11 @@ class LibraryDefine {
       return ["part of $part_of_name;"];
     }
     return [];
+  }
+
+  Iterable<String> getImportsAlias() {
+    return imports_alias.keys
+        .map((path) => "import \"$path\" as ${imports_alias[path]};");
   }
 
 }
