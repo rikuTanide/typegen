@@ -29,7 +29,6 @@ class Interpreter {
     var element_info_list = node_info_list
         .where(_isElementInfo)
         .toList();
-    print(node_info_list);
     return new Template()
       ..face_fields = face_fields_creator.getFaceFields(element_info_list);
   }
@@ -71,18 +70,18 @@ class FaceFieldsCreator {
       node_info.member_of;
 
   FaceFields _createFaceFields(String data_part,
-      List<NodeInfo> node_info_list) =>
+      List<ElementInfo> element_info_list) =>
       new FaceFields()
         ..data_part = data_part
-        ..face_fields = _getNamedElements(node_info_list);
+        ..face_fields = _getNamedElements(element_info_list);
 
-  List<FaceField> _getNamedElements(List<NodeInfo> node_info_list) =>
-      []..addAll(_getNameInputElements(node_info_list))..addAll(
-          _getNamedGeneralElement(node_info_list));
+  List<FaceField> _getNamedElements(List<ElementInfo> element_info_list) =>
+      []..addAll(_getNameInputElements(element_info_list))..addAll(
+          _getNamedGeneralElement(element_info_list));
 
 
-  List<FaceField> _getNameInputElements(List<NodeInfo> node_info_list) =>
-      node_info_list
+  List<FaceField> _getNameInputElements(List<ElementInfo> element_info_list) =>
+      element_info_list
           .where(_isNamedElement)
           .where(_isInputElement)
           .map(_createInputFaceField)
@@ -119,7 +118,7 @@ class FaceFieldsCreator {
 
   FaceField _createGeneralFaceField(ElementInfo element_info) =>
       new FaceField()
-        ..type = element_info.element.tagName
+        ..tag = element_info.element.tagName
         ..name = element_info.name;
 
 
