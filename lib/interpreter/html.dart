@@ -6,7 +6,7 @@ import 'package:html5plus/dom.dart';
 
 class Interpreter {
 
-  ElementParentsListCreator element_parents_list_creator = new ElementParentsListCreator();
+  NodeInfoListCreator node_info_list_creator = new NodeInfoListCreator();
 
   FaceFieldsCreator face_fields_creator = new FaceFieldsCreator();
 
@@ -25,16 +25,22 @@ class Interpreter {
   Template interpretHTMLFile(File file) {
     var file_name = getDefaultPartName(file);
     var html = file.readAsStringSync();
-    var element_parents_list = element_parents_list_creator.create(file_name, html);
-    print(element_parents_list);
+    var node_info_list = node_info_list_creator.create(file_name, html);
+    var element_info_list = node_info_list
+        .where(_isElementInfo)
+        .toList();
+    print(node_info_list);
     return new Template()
-      ..face_fields = face_fields_creator.getFaceFields(element_parents_list);
+      ..face_fields = face_fields_creator.getFaceFields(element_info_list);
   }
 
   String getDefaultPartName(File file) {
     var file_name = file.uri.pathSegments.last;
     return file_name.substring(0, file_name.length - 5);
   }
+
+  bool _isElementInfo(NodeInfo node_info) =>
+      node_info.node is Element;
 
 
 }
@@ -49,36 +55,34 @@ class FaceFieldsCreator {
    * DataPartごとに所属しているElementの一覧を作る
    * DataPartごとにNameAttrを持つ
    */
-  List<FaceFields> getFaceFields(List<ElementParents> element_parents_list) {
+  List<FaceFields> getFaceFields(List<ElementInfo> element_info_list) {
     // data-part名ごとにグルーピングする
-    Map<String, List<ElementParents>> element_parents_groups = grouping(
-        element_parents_list, _groupByMemberOf);
+    Map<String, List<ElementInfo>> element_info_list_groups = grouping(
+        element_info_list, _groupByMemberOf);
 
-    return element_parents_groups
+    return element_info_list_groups
         .keys
         .map((data_part) =>
-        _createFaceFields(data_part, element_parents_groups[data_part]))
+        _createFaceFields(data_part, element_info_list_groups[data_part]))
         .toList();
   }
 
-  String _groupByMemberOf(ElementParents element_parents) =>
-      element_parents.member_of;
+  String _groupByMemberOf(NodeInfo node_info) =>
+      node_info.member_of;
 
   FaceFields _createFaceFields(String data_part,
-      List<ElementParents> element_parents_list) =>
+      List<NodeInfo> node_info_list) =>
       new FaceFields()
         ..data_part = data_part
-        ..face_fields = _getNamedElements(element_parents_list);
+        ..face_fields = _getNamedElements(node_info_list);
 
-  List<FaceField> _getNamedElements(
-      List<ElementParents> element_parents_list) =>
-      []..addAll(_getNameInputElements(element_parents_list))..addAll(
-          _getNamedGeneralElement(element_parents_list));
+  List<FaceField> _getNamedElements(List<NodeInfo> node_info_list) =>
+      []..addAll(_getNameInputElements(node_info_list))..addAll(
+          _getNamedGeneralElement(node_info_list));
 
 
-  List<FaceField> _getNameInputElements(
-      List<ElementParents> element_parents_list) =>
-      element_parents_list
+  List<FaceField> _getNameInputElements(List<NodeInfo> node_info_list) =>
+      node_info_list
           .where(_isNamedElement)
           .where(_isInputElement)
           .map(_createInputFaceField)
@@ -86,37 +90,37 @@ class FaceFieldsCreator {
 
   // InputElement以外の要素
   List<FaceField> _getNamedGeneralElement(
-      List<ElementParents> element_parents_list) =>
-      element_parents_list
+      List<ElementInfo> element_info_list) =>
+      element_info_list
           .where(_isNamedElement)
           .where(_isGeneralElement)
           .map(_createGeneralFaceField)
           .toList();
 
 
-  bool _isNamedElement(ElementParents element_parents) =>
-      element_parents.name != null;
+  bool _isNamedElement(ElementInfo element_info) =>
+      element_info.name != null;
 
 
-  bool _isInputElement(ElementParents element_parents) =>
-      element_parents.element.tagName == "input";
+  bool _isInputElement(ElementInfo element_info) =>
+      element_info.element.tagName == "input";
 
 
-  _createInputFaceField(ElementParents element_parents) =>
+  _createInputFaceField(ElementInfo element_info) =>
       new FaceField()
         ..tag = "input"
-        ..name = element_parents.name
-        ..type = element_parents.element.attributes["type"];
+        ..name = element_info.name
+        ..type = element_info.element.attributes["type"];
 
 
-  bool _isGeneralElement(ElementParents element_parents) =>
-      !_isInputElement(element_parents);
+  bool _isGeneralElement(ElementInfo element_info) =>
+      !_isInputElement(element_info);
 
 
-  FaceField _createGeneralFaceField(ElementParents element_parents) =>
+  FaceField _createGeneralFaceField(ElementInfo element_info) =>
       new FaceField()
-        ..type = element_parents.element.tagName
-        ..name = element_parents.name;
+        ..type = element_info.element.tagName
+        ..name = element_info.name;
 
 
 }
@@ -150,30 +154,32 @@ List distinct(List l1, l2) {
   return l1;
 }
 
-class ElementParentsListCreator {
+class NodeInfoListCreator {
 
   String default_data_part;
-  List<List<Element>> table = [];
+  List<List<Node>> table = [];
 
 
-  List<ElementParents> create(String default_data_part, String html) {
-
+  List<NodeInfo> create(String default_data_part, String html) {
     this.default_data_part = default_data_part;
     var dom = parse(html);
     dom.nodes
         .forEach((Node node) => recursive([], node));
 
     // 使い勝手がいいようにElementParentsでラッピングする
-    var element_parents_list = _getElementParentsList();
+    var node_info_list = _getNodeInfoList();
+    ElementInfo first_element = node_info_list.first;
+    Iterable<ElementInfo> element_info_list = node_info_list
+        .where(_isElementNode);
 
     // data-partを読み込み
-    element_parents_list
-        .where(_hasElementDataPart)
+    element_info_list
+        .where(_hasDataPartElementInfo)
         .forEach(_setDataPart);
 
     // もし最上位の要素がdata-partを持っていなかったらファイル名を設定
-    if(element_parents_list[0].data_part == null){
-      element_parents_list[0].data_part = default_data_part;
+    if (first_element.data_part == null) {
+      first_element.data_part = default_data_part;
     }
 
     /**
@@ -182,104 +188,115 @@ class ElementParentsListCreator {
      * 親一覧の中にdata-partを持つ要素がない場合はファイル名
      */
 
-    element_parents_list[0].member_of = null;
+    first_element.member_of = null;
 
-    element_parents_list
-        .getRange(1,element_parents_list.length)
+    node_info_list
+        .getRange(1, node_info_list.length)
         .where(_hasParentDataPart)
         .forEach(_setMemberOf);
 
     // parentsの中にdata-partを持つ要素がある場合は
     // そのdata-partの所属とする
-    element_parents_list
+    node_info_list
         .where(_hasNotParentDataPart)
         .forEach(_setDefaultMemberOf);
 
 
     // 要素が名前を持っているならその名前を使う
-    element_parents_list
+    element_info_list
         .where(_hasName)
         .forEach(_setName);
 
     // 最上位要素が名前を持っていないならデフォルトの名前
-    if(element_parents_list[0].name == null){
-      element_parents_list[0].name = "element";
+    if (first_element.name == null) {
+      first_element.name = "element";
     }
 
-    return element_parents_list;
+    return node_info_list;
   }
 
   void recursive(List<Element> parents, Node node) {
     if (node is Element || node is Text) {
-
       parents = parents.toList()
         ..add(node);
       table.add(parents);
       if (node is Element) {
-        node.children.forEach((node) => recursive(parents, node));
+        node.nodes.forEach((node) => recursive(parents, node));
       }
     }
   }
 
-  List<ElementParents> _getElementParentsList() =>
+  List<NodeInfo> _getNodeInfoList() =>
       table
-          .map(_createElementParents)
+          .map(_createNodeInfo)
           .toList();
 
-  ElementParents _createElementParents(List<Element> elements) =>
-      new ElementParents()
-        ..parents = elements
-        ..element = elements.last;
+  NodeInfo _createNodeInfo(List<Node> elements) =>
+      elements.last is Element ?
+      _createElementInfo(elements) :
+      _createTextInfo(elements);
 
-  bool _hasElementDataPart(ElementParents element_parents) =>
-      _hasDataPart(element_parents.element);
+  ElementInfo _createElementInfo(List<Node> elements) =>
+      new ElementInfo()
+        ..parents = elements.getRange(0, elements.length - 1).toList()
+        ..node = elements.last;
 
-  _setDataPart(ElementParents element_parents) =>
-      element_parents
-          .data_part = element_parents.element.attributes["data-part"];
+  TextInfo _createTextInfo(List<Node> elements) =>
+      new TextInfo()
+        ..parents = elements.getRange(0, elements.length - 1).toList()
+        ..node = elements.last;
 
-  Iterable<Element> _getParents(ElementParents element_parents) =>
-      element_parents
+  bool _isElementNode(NodeInfo node_info) =>
+      node_info is ElementInfo;
+
+  bool _hasDataPartElementInfo(ElementInfo element_info) =>
+      _hasDataPart(element_info.element);
+
+  _setDataPart(ElementInfo element_info) =>
+      element_info
+          .data_part = element_info.element.attributes["data-part"];
+
+
+  bool _hasParentDataPart(NodeInfo node_info) =>
+      node_info
           .parents
-          .getRange(0,element_parents.parents.length - 1);
-
-  bool _hasParentDataPart(ElementParents element_parents) =>
-      _getParents(element_parents)
-      .any(_hasDataPart);
+          .any(_hasDataPart);
 
   bool _hasDataPart(Element element) =>
       element.attributes.containsKey("data-part");
 
-  _setMemberOf(ElementParents element_parents) =>
-      _getParents(element_parents)
-      .firstWhere(_hasDataPart)
-      .attributes["data-part"];
+  _setMemberOf(NodeInfo node_info) =>
+      node_info
+          .parents
+          .lastWhere(_hasDataPart)
+          .attributes["data-part"];
 
-  bool _hasNotParentDataPart(ElementParents element_parents) =>
-      !_hasParentDataPart(element_parents);
+  bool _hasNotParentDataPart(NodeInfo node_info) =>
+      !_hasParentDataPart(node_info);
 
-  _setDefaultMemberOf(ElementParents element_parents) =>
-      element_parents.member_of = default_data_part;
+  _setDefaultMemberOf(NodeInfo node_info) =>
+      node_info.member_of = default_data_part;
 
 
-  bool _hasName(ElementParents element_parents) =>
-      element_parents.element.attributes.containsKey("name");
+  bool _hasName(ElementInfo element_info) =>
+      element_info.element.attributes.containsKey("name");
 
-  _setName(ElementParents element) =>
-      element.name = element.element.attributes["name"];
+  _setName(ElementInfo element_info) =>
+      element_info.name = element_info.element.attributes["name"];
 
 }
 
-class ElementParents {
+abstract class NodeInfo {
   /**
-   * 自分を含む
+   * 自分を含まない
    */
   List<Element> parents;
 
   /**
    * 自分
    */
-  Element element;
+  Node node;
+
 
   /**
    * 所属しているのDataPart
@@ -290,10 +307,23 @@ class ElementParents {
 
   String name;
 
-  toString() => "\ntag:${element.tagName}\n name:$name\n member_of:$member_of\n";
 
 }
 
+class ElementInfo extends NodeInfo {
+
+  Element get element => node;
+
+  String toString() =>
+      "\ntag:${element.tagName}\n name:$name\n member_of:$member_of\n";
+}
+
+class TextInfo extends NodeInfo {
+  String get text => (node as Text).text;
+
+  String toString() => "\n$text";
+
+}
 
 class Template {
   List<FaceFields> face_fields;
